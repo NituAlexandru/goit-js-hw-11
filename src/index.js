@@ -25,11 +25,11 @@ async function fetchImages(query, currentPage) {
   const options = {
     params: {
       key: API_KEY,
-      q: query,
-      image_type: 'photo',
+      q: query, //termenul de cautare introdus de utilizator
+      image_type: 'photo', // tipul de img solicitate
       orientation: 'horizontal',
-      page: currentPage,
-      safesearch: true,
+      page: 1, //nr paginii curente pentru paginare
+      safesearch: true, //filtrul de continut sigur
       per_page: 40,
     },
   };
@@ -43,14 +43,18 @@ async function fetchImages(query, currentPage) {
       // parametrii trimisi impreuna cu solicitarea HTTP. Parametrii
       // sunt specificati in doc API-ului Pixabay
     );
-    // verifica daca sunt imaginii
+    // Verifică dacă nu sunt găsite imagini sau dacă numărul total de imagini
+    // este mai mic sau egal cu produsul dintre numărul paginii curente și
+    // numărul de imagini pe pagină. Aceasta indică faptul că s-au atins toate
+    // rezultatele posibile sau nu sunt rezultate
+
     if (
       response.data.hits.length === 0 ||
       response.data.totalHits <= currentPage * 40
     ) {
-      isEndOfResults = true;
+      isEndOfResults = true; // Setează flag-ul că s-au atins toate rezultatele
       return { hits: null, totalHits: response.data.totalHits };
-    }
+    } // Returnează un obiect gol pentru 'hits' și numărul total de imagini
 
     // Daca sunt gasite imagini functia returneaza img sub forma unui
     // array de obiecte
@@ -60,7 +64,7 @@ async function fetchImages(query, currentPage) {
   } catch (error) {
     console.error('Error fetching data: ', error);
     isEndOfResults = true;
-    return { hits: null, totalHits: 0 };
+    return { hits: null, totalHits: 0 }; // Returnează un obiect cu valori nule în caz de eroare
   }
 }
 
@@ -68,6 +72,8 @@ async function fetchImages(query, currentPage) {
 // forma de string, care reprezinta un card de img pt fiecare hit (sau rezultat)
 // primit
 function createImageCard(hit) {
+  // Utilizează template literals pentru a crea un string HTML.
+  // Fiecare card de imagine va conține:
   return `
     <div class="photo-card">
       <a href="${hit.largeImageURL}" data-lightbox="gallery">
@@ -82,8 +88,9 @@ function createImageCard(hit) {
     </div>
   `;
 }
-// functia primeste parametrul images = un array de obiecte, fiecare
-// reprezentant o img
+
+// actualizeaza galeria de img. Primeste 'images' care este un array de ob,
+// fiecare reprezentand o img (hit) returnata de API
 function updateGallery(images) {
   const markup = images.map(hit => createImageCard(hit)).join('');
   //transforma fiecare elem din array ul images (fiecare elem este un 'hit')
@@ -91,6 +98,9 @@ function updateGallery(images) {
   //string HTML pentru fiecare img. Toate aceste string uri sunt unite cu join
   //iar stringul complet este stocat in markup.
   galleryDiv.innerHTML += markup; //adauga markup la continutul galleryDiv
+
+  //initializeaza/actualizeaza libraria SimpleLightbox pentru a include
+  //nouile linkuri
   lightbox = new SimpleLightbox('.gallery a', {});
   lightbox.refresh();
 
@@ -98,15 +108,16 @@ function updateGallery(images) {
   //in galerie
   if (galleryDiv.firstElementChild) {
     const { height: cardHeight } =
-      galleryDiv.firstElementChild.getBoundingClientRect();
+      galleryDiv.firstElementChild.getBoundingClientRect(); //obtine inaltimea primului elem din galerie
+    // Derulează pagina în jos cu o valoare egală cu dublul înălțimii unui card
     window.scrollBy({
-      top: cardHeight * 2,
+      top: cardHeight / 3,
       behavior: 'smooth',
     });
   }
 }
 
-//gestionarea formularului
+// Gestionarea formularului
 searchForm.addEventListener('submit', async e => {
   e.preventDefault();
   //Extrage val introdusa de utilizator in campul de cautare al form, elimina
@@ -119,9 +130,10 @@ searchForm.addEventListener('submit', async e => {
     return;
   }
 
+  // Resetarea variabilelor pentru o nouă căutare
   currentPage = 1; //ca sa inceapa cautarea de la pag 1
-  isEndOfResults = false;
-  isMessageDisplayed = false;
+  isEndOfResults = false; // Resetarea stării de sfârșit al rezultatelor
+  isMessageDisplayed = false; // Resetarea stării pentru afișarea mesajului de sfârșit al rezultatelor
   galleryDiv.innerHTML = ''; //sterge continutul actual al div ului galeriei
   //pregatindu-l pentru afisarea noilor rezultate de cautare
 
@@ -136,8 +148,12 @@ searchForm.addEventListener('submit', async e => {
     loadMoreBtn.style.display = 'none';
     return;
   }
+
+  // Dacă sunt găsite imagini, afișează un mesaj de succes cu numărul
+  // total de imagini găsite.
   Notiflix.Notify.success(`Hooray! We found ${totalHits} images.`);
 
+  // Actualizează galeria cu noile imagini.
   updateGallery(hits);
   loadMoreBtn.style.display = 'none';
 });
@@ -157,39 +173,61 @@ loadMoreBtn.addEventListener('click', async () => {
 
 loadMoreBtn.style.display = 'none';
 
-// Infinite Scrolling Logic
+// Infinite Scrolling Logic // se aplica de fiecare data cand utilizatorul
+// deruleaza pagina
 window.addEventListener('scroll', async () => {
+  // Verifică dacă utilizatorul a derulat aproape de sfârșitul paginii.
+  // 'window.innerHeight + window.scrollY' reprezintă distanța derulată
+  // plus înălțimea ferestrei, iar 'document.body.offsetHeight' este
+  // înălțimea totală a conținutului paginii.
   if (
+    // Verifică dacă sfârșitul paginii este aproape
     window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 &&
-    !isEndOfResults
+    !isEndOfResults // Și dacă nu s-a atins sfârșitul rezultatelor
   ) {
     currentPage += 1;
+
+    // Apel asincron către funcția fetchImages pentru a obține următoarea
+    // serie de imagini.
     const { hits, totalHits } = await fetchImages(searchQuery, currentPage);
 
+    // Verifică dacă sunt disponibile imagini noi de încărcat.
     if (!hits) {
+      // Dacă nu sunt imagini noi, setează starea de sfârșit al rezultatelor.
       isEndOfResults = true;
+      // Verifică dacă un mesaj de sfârșit nu a fost deja afișat
       if (!isMessageDisplayed) {
         Notiflix.Notify.info(
           "We're sorry, but you've reached the end of search results."
         );
-        isMessageDisplayed = true;
+        isMessageDisplayed = true; // Marchează că mesajul a fost afișat
       }
-      return;
+      return; // Încheie execuția funcției aici, deoarece nu mai sunt imagini de încărcat
     }
 
+    // Dacă sunt disponibile imagini noi, actualizează galeria cu acestea.
     updateGallery(hits);
   }
 });
 
-// Scroll up btn
+// Scroll up btn - se activeaza la orice scroll
 window.onscroll = function () {
+  // Verifică dacă s-a derulat în pagină mai mult de 20px.
+  // 'document.body.scrollTop' este folosit pentru unele browsere, iar
+  // 'document.documentElement.scrollTop' pentru altele.
   if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
-    backToFormBtn.style.display = 'block';
+    backToFormBtn.style.display = 'block'; // Afișează butonul
   } else {
-    backToFormBtn.style.display = 'none';
+    backToFormBtn.style.display = 'none'; // Ascunde butonul
   }
 };
 
+// Acest listener de evenimente este atașat la butonul de revenire în
+// susul paginii(backToFormBtn).Când acest buton este apăsat, va declanșa
+// acțiunea definită în interior.
 backToFormBtn.onclick = function () {
+  // Face ca formularul de căutare să devină vizibil în partea de sus a
+  // paginii. 'scrollIntoView' derulează documentul până când elementul
+  // specificat (în acest caz, searchForm) este în vizor.
   searchForm.scrollIntoView({ behavior: 'smooth' });
 };
