@@ -12,6 +12,7 @@ let searchQuery = ''; // initializeaza ca sir gol
 let currentPage = 1;
 let lightbox = new SimpleLightbox('.gallery a', {});
 let isEndOfResults = false;
+let isMessageDisplayed = false;
 
 const galleryDiv = document.querySelector('.gallery');
 const loadMoreBtn = document.querySelector('.load-more');
@@ -46,14 +47,20 @@ async function fetchImages(query, currentPage) {
     );
     // verifica daca sunt imaginii
     if (response.data.hits.length === 0) {
+      isEndOfResults = true;
       return null;
     }
+
     // Daca sunt gasite imagini functia returneaza img sub forma unui
     // array de obiecte
     return response.data.hits;
     // se executa catch daca apare o eroare in timpul solicitarii HTTP.
     // eroarea este afisata in consola si utilizatorul primeste notif err
   } catch (error) {
+    if (error.response && error.response.status === 400) {
+      isEndOfResults = true;
+      return null;
+    }
     console.error('Error fetching data: ', error);
   }
 }
@@ -99,6 +106,14 @@ function updateGallery(images) {
     });
   }
 }
+
+
+
+
+
+
+
+
 //gestionarea formularului
 searchForm.addEventListener('submit', async e => {
   e.preventDefault();
@@ -110,7 +125,7 @@ searchForm.addEventListener('submit', async e => {
   if (!searchQuery) {
     Notiflix.Notify.warning('Please enter a search term.');
     return;
-  }
+  } 
 
   currentPage = 1; //ca sa inceapa cautarea de la pag 1
   galleryDiv.innerHTML = ''; //sterge continutul actual al div ului galeriei
@@ -127,11 +142,20 @@ searchForm.addEventListener('submit', async e => {
     loadMoreBtn.style.display = 'none';
     return;
   }
-  // Afișează notificarea cu numărul total de imagini găsite
-
   updateGallery(data);
   loadMoreBtn.style.display = 'none';
 });
+
+
+
+
+
+
+
+
+
+
+
 
 // Butonul de load more (nu mai este nevoie de el pt ca avem infinite scroll)
 loadMoreBtn.addEventListener('click', async () => {
@@ -148,44 +172,39 @@ loadMoreBtn.addEventListener('click', async () => {
 
 loadMoreBtn.style.display = 'none';
 
-// Infinite Scrolling Logic / incarca automat mai multe img cand utilizatorul
-// deruleaza in josul paginii
+// Infinite Scrolling Logic
 window.addEventListener('scroll', async () => {
-  // daca isEndOfResults este adevarat, inseamna ca toate rez disponibile
-  // au fost deja incarcate, si nu mai este necesar sa se faca alte solicitari
-  if (
-    isEndOfResults ||
-    //verifica daca utilizatorul a derulat destul de jos pe pag pt a declansa
-    //incarcarea urm paag de img. Window.innerheight = inaltimea vizibila
-    //a ferestrei browserului, window.scrollY = cat de mult s-a derulat.
-    //document.body.offsetHeight = inaltimea totala a continutul pag.
-    window.innerHeight + window.scrollY < document.body.offsetHeight - 100
-  ) {
-    //daca nu s-a derulat sufucient functia se incheie
-    return;
-  }
-
-  currentPage += 1;
-  const data = await fetchImages(searchQuery, currentPage); //apeleaza
-  //funcția fetchImages cu termenul de căutare curent și numărul paginii
-  //actualizat pentru a obține următoarea serie de imagini.
-
-  //Verifica daca nu exista date sau lungimea datelor este 0, ceea ce
-  //inseamna ca nu mai sunt ig de incarcat.
-  if (!data || data.length === 0) {
-    if (!isEndOfResults) {
-      Notiflix.Notify.info(
-        "We're sorry, but you've reached the end of search results."
-      );
-      isEndOfResults = true;
+  if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
+    if (isEndOfResults) {
+      if (!isMessageDisplayed) {
+        Notiflix.Notify.info(
+          "We're sorry, but you've reached the end of search results."
+        );
+        isMessageDisplayed = true; // Setează că mesajul a fost afișat
+      }
+      return;
     }
-    loadMoreBtn.style.display = 'none';
-    return;
+
+    currentPage += 1;
+    const data = await fetchImages(searchQuery, currentPage);
+
+    if (!data) {
+      isEndOfResults = true;
+      if (!isMessageDisplayed) {
+        Notiflix.Notify.info(
+          "We're sorry, but you've reached the end of search results."
+        );
+        isMessageDisplayed = true; // Setează că mesajul a fost afișat
+      }
+      loadMoreBtn.style.display = 'none';
+      return;
+    }
+
+    updateGallery(data);
   }
-  updateGallery(data);
 });
 
-// scroll up btn
+// Scroll up btn
 window.onscroll = function () {
   if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
     backToFormBtn.style.display = 'block';
