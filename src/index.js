@@ -120,6 +120,8 @@ searchForm.addEventListener('submit', async e => {
   }
 
   currentPage = 1; //ca sa inceapa cautarea de la pag 1
+  isEndOfResults = false;
+  isMessageDisplayed = false;
   galleryDiv.innerHTML = ''; //sterge continutul actual al div ului galeriei
   //pregatindu-l pentru afisarea noilor rezultate de cautare
 
