@@ -46,16 +46,15 @@ async function fetchImages(query, currentPage) {
     );
     // verifica daca sunt imaginii
     if (response.data.hits.length === 0) {
-      return { images: null, totalHits: 0 };
+      return null;
     }
     // Daca sunt gasite imagini functia returneaza img sub forma unui
     // array de obiecte
-    return { images: response.data.hits, totalHits: response.data.totalHits };
+    return response.data.hits;
     // se executa catch daca apare o eroare in timpul solicitarii HTTP.
     // eroarea este afisata in consola si utilizatorul primeste notif err
   } catch (error) {
     console.error('Error fetching data: ', error);
-    return { images: null, totalHits: 0 };
   }
 }
 
@@ -118,10 +117,10 @@ searchForm.addEventListener('submit', async e => {
   //pregatindu-l pentru afisarea noilor rezultate de cautare
 
   //apeleaza fnctia asincrona fetchImages si returneaza rezultatele de la API
-  const { images, totalHits } = await fetchImages(searchQuery, currentPage);
+  const data = await fetchImages(searchQuery, currentPage);
 
   //verifica daca s-au gasit img, daca nu, afiseaza msg
-  if (images === null) {
+  if (data === null) {
     Notiflix.Notify.failure(
       'Sorry, there are no images matching your search query. Please try again!'
     );
@@ -129,9 +128,8 @@ searchForm.addEventListener('submit', async e => {
     return;
   }
   // Afișează notificarea cu numărul total de imagini găsite
-  Notiflix.Notify.success(`Hooray! We found ${totalHits} images.`);
 
-  updateGallery(images);
+  updateGallery(data);
   loadMoreBtn.style.display = 'none';
 });
 
