@@ -25,10 +25,10 @@ async function fetchImages(query, currentPage) {
   const options = {
     params: {
       key: API_KEY,
-      q: '',
+      q: query,
       image_type: 'photo',
       orientation: 'horizontal',
-      page: 1,
+      page: currentPage,
       safesearch: true,
       per_page: 40,
     },
@@ -36,8 +36,6 @@ async function fetchImages(query, currentPage) {
   try {
     // 'try' incearca sa execute solicitarea HTTP si sa gestionezze
     // orice eroare care apare
-    options.params.q = query;
-    options.params.page = currentPage;
 
     const response = await axios.get(
       PIXABAY_URL,
@@ -46,22 +44,23 @@ async function fetchImages(query, currentPage) {
       // sunt specificati in doc API-ului Pixabay
     );
     // verifica daca sunt imaginii
-    if (response.data.hits.length === 0) {
+    if (
+      response.data.hits.length === 0 ||
+      response.data.totalHits <= currentPage * 40
+    ) {
       isEndOfResults = true;
-      return null;
+      return { hits: null, totalHits: response.data.totalHits };
     }
 
     // Daca sunt gasite imagini functia returneaza img sub forma unui
     // array de obiecte
-    return response.data.hits;
+    return { hits: response.data.hits, totalHits: response.data.totalHits };
     // se executa catch daca apare o eroare in timpul solicitarii HTTP.
     // eroarea este afisata in consola si utilizatorul primeste notif err
   } catch (error) {
-    if (error.response && error.response.status === 400) {
-      isEndOfResults = true;
-      return null;
-    }
     console.error('Error fetching data: ', error);
+    isEndOfResults = true;
+    return { hits: null, totalHits: 0 };
   }
 }
 
@@ -107,13 +106,6 @@ function updateGallery(images) {
   }
 }
 
-
-
-
-
-
-
-
 //gestionarea formularului
 searchForm.addEventListener('submit', async e => {
   e.preventDefault();
@@ -125,37 +117,28 @@ searchForm.addEventListener('submit', async e => {
   if (!searchQuery) {
     Notiflix.Notify.warning('Please enter a search term.');
     return;
-  } 
+  }
 
   currentPage = 1; //ca sa inceapa cautarea de la pag 1
   galleryDiv.innerHTML = ''; //sterge continutul actual al div ului galeriei
   //pregatindu-l pentru afisarea noilor rezultate de cautare
 
   //apeleaza fnctia asincrona fetchImages si returneaza rezultatele de la API
-  const data = await fetchImages(searchQuery, currentPage);
+  const { hits, totalHits } = await fetchImages(searchQuery, currentPage);
 
   //verifica daca s-au gasit img, daca nu, afiseaza msg
-  if (data === null) {
+  if (hits === null || hits.length === 0) {
     Notiflix.Notify.failure(
       'Sorry, there are no images matching your search query. Please try again!'
     );
     loadMoreBtn.style.display = 'none';
     return;
   }
-  updateGallery(data);
+  Notiflix.Notify.success(`Hooray! We found ${totalHits} images.`);
+
+  updateGallery(hits);
   loadMoreBtn.style.display = 'none';
 });
-
-
-
-
-
-
-
-
-
-
-
 
 // Butonul de load more (nu mai este nevoie de el pt ca avem infinite scroll)
 loadMoreBtn.addEventListener('click', async () => {
@@ -174,33 +157,25 @@ loadMoreBtn.style.display = 'none';
 
 // Infinite Scrolling Logic
 window.addEventListener('scroll', async () => {
-  if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
-    if (isEndOfResults) {
-      if (!isMessageDisplayed) {
-        Notiflix.Notify.info(
-          "We're sorry, but you've reached the end of search results."
-        );
-        isMessageDisplayed = true; // Setează că mesajul a fost afișat
-      }
-      return;
-    }
-
+  if (
+    window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 &&
+    !isEndOfResults
+  ) {
     currentPage += 1;
-    const data = await fetchImages(searchQuery, currentPage);
+    const { hits, totalHits } = await fetchImages(searchQuery, currentPage);
 
-    if (!data) {
+    if (!hits) {
       isEndOfResults = true;
       if (!isMessageDisplayed) {
         Notiflix.Notify.info(
           "We're sorry, but you've reached the end of search results."
         );
-        isMessageDisplayed = true; // Setează că mesajul a fost afișat
+        isMessageDisplayed = true;
       }
-      loadMoreBtn.style.display = 'none';
       return;
     }
 
-    updateGallery(data);
+    updateGallery(hits);
   }
 });
 
