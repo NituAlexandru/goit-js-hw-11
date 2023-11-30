@@ -28,7 +28,7 @@ async function fetchImages(query, currentPage) {
       q: query, //termenul de cautare introdus de utilizator
       image_type: 'photo', // tipul de img solicitate
       orientation: 'horizontal',
-      page: 1, //nr paginii curente pentru paginare
+      page: currentPage, //nr paginii curente pentru paginare
       safesearch: true, //filtrul de continut sigur
       per_page: 40,
     },
@@ -47,7 +47,7 @@ async function fetchImages(query, currentPage) {
     // este mai mic sau egal cu produsul dintre numărul paginii curente și
     // numărul de imagini pe pagină. Aceasta indică faptul că s-au atins toate
     // rezultatele posibile sau nu sunt rezultate
-
+    console.log(response.data);
     if (
       response.data.hits.length === 0 ||
       response.data.totalHits <= currentPage * 40
