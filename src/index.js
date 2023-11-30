@@ -48,19 +48,15 @@ async function fetchImages(query, currentPage) {
     // numărul de imagini pe pagină. Aceasta indică faptul că s-au atins toate
     // rezultatele posibile sau nu sunt rezultate
     console.log(response.data);
-    if (
-      response.data.hits.length === 0 ||
-      response.data.totalHits <= currentPage * 40
-    ) {
-      isEndOfResults = true; // Setează flag-ul că s-au atins toate rezultatele
-      return { hits: null, totalHits: response.data.totalHits };
-    } // Returnează un obiect gol pentru 'hits' și numărul total de imagini
 
-    // Daca sunt gasite imagini functia returneaza img sub forma unui
-    // array de obiecte
-    return { hits: response.data.hits, totalHits: response.data.totalHits };
-    // se executa catch daca apare o eroare in timpul solicitarii HTTP.
-    // eroarea este afisata in consola si utilizatorul primeste notif err
+    const totalHits = response.data.totalHits;
+    const totalPages = Math.ceil(totalHits / 40); // Calculați numărul total de pagini
+
+    return {
+      hits: response.data.hits,
+      totalHits: response.data.totalHits,
+      totalPages: totalPages,
+    };
   } catch (error) {
     console.error('Error fetching data: ', error);
     isEndOfResults = true;
@@ -151,7 +147,7 @@ searchForm.addEventListener('submit', async e => {
 
   // Dacă sunt găsite imagini, afișează un mesaj de succes cu numărul
   // total de imagini găsite.
-  Notiflix.Notify.success(`Hooray! We found ${totalHits} images.`);
+  Notiflix.Notify.success(`Hooray! We found up to ${totalHits} images.`);
 
   // Actualizează galeria cu noile imagini.
   updateGallery(hits);
@@ -185,28 +181,24 @@ window.addEventListener('scroll', async () => {
     window.innerHeight + window.scrollY >= document.body.offsetHeight - 100 &&
     !isEndOfResults // Și dacă nu s-a atins sfârșitul rezultatelor
   ) {
-    currentPage += 1;
-
     // Apel asincron către funcția fetchImages pentru a obține următoarea
     // serie de imagini.
-    const { hits, totalHits } = await fetchImages(searchQuery, currentPage);
+    const { hits, totalHits } = await fetchImages(
+      searchQuery,
+      currentPage
+    );
 
     // Verifică dacă sunt disponibile imagini noi de încărcat.
-    if (!hits) {
-      // Dacă nu sunt imagini noi, setează starea de sfârșit al rezultatelor.
+    if (currentPage * 40 < totalHits) {
+      currentPage += 1;
+      updateGallery(hits);
+    } else {
       isEndOfResults = true;
-      // Verifică dacă un mesaj de sfârșit nu a fost deja afișat
       if (!isMessageDisplayed) {
-        Notiflix.Notify.info(
-          "We're sorry, but you've reached the end of search results."
-        );
-        isMessageDisplayed = true; // Marchează că mesajul a fost afișat
+        Notiflix.Notify.info("You've reached the end of search results.");
+        isMessageDisplayed = true;
       }
-      return; // Încheie execuția funcției aici, deoarece nu mai sunt imagini de încărcat
     }
-
-    // Dacă sunt disponibile imagini noi, actualizează galeria cu acestea.
-    updateGallery(hits);
   }
 });
 
